@@ -112,6 +112,12 @@ const DashboardPage = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [overviewMonthYM, setOverviewMonthYM] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const overviewYear = parseInt(overviewMonthYM.slice(0, 4), 10);
+  const overviewMonth = parseInt(overviewMonthYM.slice(5, 7), 10);
 
   useEffect(() => {
     const onResetHome = () => setActiveDashboard("home");
@@ -396,6 +402,16 @@ const DashboardPage = () => {
     return profitAnalysisData.slice(0, Math.min(7, profitAnalysisData.length));
   }, [isAdmin, profitAnalysisData]);
 
+  const stockOverviewPieData = useMemo(() => {
+    const total = stockOverviewData.reduce((s, x) => s + x.value, 0) || 1;
+    const fills = { "In Stock": "#22c55e", "Low Stock": "#eab308", "Out of Stock": "#ef4444" };
+    return stockOverviewData.map((d) => ({
+      ...d,
+      pct: Math.round((d.value / total) * 100),
+      fill: fills[d.name] || "#94a3b8",
+    }));
+  }, [stockOverviewData]);
+
   const recentActivities = useMemo(
     () =>
       [...filteredTransactions]
@@ -405,14 +421,11 @@ const DashboardPage = () => {
   );
 
   const thisCalendarMonthTx = useMemo(() => {
-    const d = new Date();
-    const m = d.getMonth() + 1;
-    const y = d.getFullYear();
     return transactions.filter((t) => {
       const dt = new Date(t.createdAt);
-      return dt.getMonth() + 1 === m && dt.getFullYear() === y;
+      return dt.getMonth() + 1 === overviewMonth && dt.getFullYear() === overviewYear;
     });
-  }, [transactions]);
+  }, [transactions, overviewMonth, overviewYear]);
 
   const thisMonthSalesRevenue = useMemo(
     () =>
@@ -454,9 +467,13 @@ const DashboardPage = () => {
     [transactions]
   );
 
-  const todayPeriodLabel = useMemo(
-    () => new Date().toLocaleString("default", { month: "long", year: "numeric" }),
-    []
+  const overviewPeriodLabel = useMemo(
+    () =>
+      new Date(overviewYear, overviewMonth - 1, 1).toLocaleString("default", {
+        month: "long",
+        year: "numeric",
+      }),
+    [overviewYear, overviewMonth]
   );
 
   const filteredInventoryProducts = useMemo(() => {
@@ -709,6 +726,24 @@ const DashboardPage = () => {
       ? "Shortcuts and tools for this area — more content may be added here later."
       : "Inventory insights, stock health, and performance";
 
+  const stockPieLegendContent = (legendProps) => {
+    const payload = legendProps?.payload;
+    if (!payload?.length) return null;
+    return (
+      <ul className="dashboard-stock-pie-legend">
+        {payload.map((entry) => (
+          <li key={`${entry.payload.name}-${entry.value}`}>
+            <span className="dashboard-stock-pie-legend-dot" style={{ background: entry.color }} />
+            <span className="dashboard-stock-pie-legend-name">{entry.payload.name}</span>
+            <span className="dashboard-stock-pie-legend-meta">
+              ({entry.value}, {entry.payload.pct}%)
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
   return (
     <Layout>
       {message && <div className="message">{message}</div>}
@@ -720,30 +755,56 @@ const DashboardPage = () => {
         <div
           className={`dashboard-title-wrap${activeDashboard === "home" ? " dashboard-title-wrap--welcome" : ""}`}
         >
-          <div className="dashboard-brand">
-            <button
-              type="button"
-              className="dashboard-logo-hit"
-              onClick={() => setActiveDashboard("home")}
-              aria-label="Back to dashboard overview"
-            >
-              <img className="dashboard-logo" src={logo} alt="" />
-            </button>
-            <div className="dashboard-brand-text">
-              <h1 className={`dashboard-title${activeDashboard === "home" ? " dashboard-title--welcome" : ""}`}>
-                {activeDashboard === "home" ? (
-                  <>
-                    Welcome back, {isAdmin ? "Admin" : "Manager"}{" "}
-                    <span className="dashboard-welcome-emoji" aria-hidden>
-                      👋
-                    </span>
-                  </>
-                ) : (
-                  dashboardTitle
-                )}
-              </h1>
-              <p className="dashboard-subtitle">{dashboardSubtitle}</p>
+          <div className="dashboard-title-main">
+            <div className="dashboard-brand">
+              <button
+                type="button"
+                className="dashboard-logo-hit"
+                onClick={() => setActiveDashboard("home")}
+                aria-label="Back to dashboard overview"
+              >
+                <img className="dashboard-logo" src={logo} alt="" />
+              </button>
+              <div className="dashboard-brand-text">
+                <h1 className={`dashboard-title${activeDashboard === "home" ? " dashboard-title--welcome" : ""}`}>
+                  {activeDashboard === "home" ? (
+                    <>
+                      Welcome back, {isAdmin ? "Admin" : "Manager"}{" "}
+                      <span className="dashboard-welcome-emoji" aria-hidden>
+                        👋
+                      </span>
+                    </>
+                  ) : (
+                    dashboardTitle
+                  )}
+                </h1>
+                <p className="dashboard-subtitle">{dashboardSubtitle}</p>
+              </div>
             </div>
+            {activeDashboard === "home" && (
+              <label className="dashboard-month-control">
+                <span className="visually-hidden">Overview month for KPI totals</span>
+                <span className="dashboard-month-control-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <span className="dashboard-month-control-text">{overviewPeriodLabel}</span>
+                <input
+                  type="month"
+                  className="dashboard-month-input"
+                  value={overviewMonthYM}
+                  max={`${new Date().getFullYear() + 1}-12`}
+                  onChange={(e) => {
+                    if (e.target.value) setOverviewMonthYM(e.target.value);
+                  }}
+                />
+                <span className="dashboard-month-control-chevron" aria-hidden>
+                  ▾
+                </span>
+              </label>
+            )}
           </div>
         </div>
 
@@ -861,6 +922,25 @@ const DashboardPage = () => {
           </div>
         </div>
 
+        {activeDashboard === "home" && (
+          <div className="dashboard-info-banner" role="status">
+            <div className="dashboard-info-banner-icon" aria-hidden>
+              i
+            </div>
+            <div className="dashboard-info-banner-copy">
+              <strong className="dashboard-info-banner-title">How this overview works</strong>
+              <p className="dashboard-info-banner-text">
+                Workspace cards open rich analytics below. KPI totals follow the month in the header — charts still
+                show the rolling last 7 days of sales so you can spot daily momentum quickly.
+              </p>
+            </div>
+            <div className="dashboard-info-banner-visual" aria-hidden>
+              <span className="dashboard-info-banner-chart" />
+              <span className="dashboard-info-banner-chart dashboard-info-banner-chart--sm" />
+            </div>
+          </div>
+        )}
+
         {activeDashboard !== "home" && (
           <div className="dashboard-overview-action">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveDashboard("home")}>
@@ -873,49 +953,89 @@ const DashboardPage = () => {
           <div className="dashboard-content dashboard-home-hub">
             <div className="dashboard-home-intro">
               <p className="dashboard-home-lead">
-                You are on the overview. Tap a card above for module workspaces, or use the live snapshot and
-                shortcuts below to jump straight into daily tasks.
+                Snapshot for <strong>{overviewPeriodLabel}</strong> — use the workspace cards for deep charts and
+                exports, or jump ahead with shortcuts at the bottom of this page.
               </p>
-              <div className="dashboard-home-period" aria-label="Current calendar month">
-                <span className="dashboard-home-period-badge">{todayPeriodLabel}</span>
-                <span className="dashboard-home-period-note">Month totals below use today&apos;s calendar month</span>
-              </div>
             </div>
 
             <div className="dashboard-home-kpi-row" aria-label="Key metrics">
-              <div className="dashboard-home-kpi">
-                <span className="dashboard-home-kpi-label">Products</span>
-                <strong className="dashboard-home-kpi-value">{products.length}</strong>
-                <span className="dashboard-home-kpi-hint">in catalog</span>
+              <div className="dashboard-home-kpi dashboard-home-kpi--with-icon">
+                <span className="dashboard-home-kpi-icon dashboard-home-kpi-icon--blue" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  </svg>
+                </span>
+                <div className="dashboard-home-kpi-text">
+                  <span className="dashboard-home-kpi-label">Products</span>
+                  <strong className="dashboard-home-kpi-value">{products.length}</strong>
+                  <span className="dashboard-home-kpi-hint">in catalog</span>
+                </div>
               </div>
               <div
-                className={`dashboard-home-kpi${lowStockProducts.length > 0 ? " dashboard-home-kpi--alert" : ""}`}
+                className={`dashboard-home-kpi dashboard-home-kpi--with-icon${
+                  lowStockProducts.length > 0 ? " dashboard-home-kpi--alert" : ""
+                }`}
               >
-                <span className="dashboard-home-kpi-label">Low stock</span>
-                <strong className="dashboard-home-kpi-value">{lowStockProducts.length}</strong>
-                <span className="dashboard-home-kpi-hint">≤ 5 units</span>
+                <span className="dashboard-home-kpi-icon dashboard-home-kpi-icon--amber" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="dashboard-home-kpi-text">
+                  <span className="dashboard-home-kpi-label">Low stock</span>
+                  <strong className="dashboard-home-kpi-value">{lowStockProducts.length}</strong>
+                  <span className="dashboard-home-kpi-hint">≤ 5 units</span>
+                </div>
               </div>
-              <div className="dashboard-home-kpi">
-                <span className="dashboard-home-kpi-label">Suppliers</span>
-                <strong className="dashboard-home-kpi-value">{suppliers.length}</strong>
-                <span className="dashboard-home-kpi-hint">active directory</span>
+              <div className="dashboard-home-kpi dashboard-home-kpi--with-icon">
+                <span className="dashboard-home-kpi-icon dashboard-home-kpi-icon--green" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 3h15v11H1zM16 8h4l3 3v3h-7V8z" />
+                  </svg>
+                </span>
+                <div className="dashboard-home-kpi-text">
+                  <span className="dashboard-home-kpi-label">Suppliers</span>
+                  <strong className="dashboard-home-kpi-value">{suppliers.length}</strong>
+                  <span className="dashboard-home-kpi-hint">active directory</span>
+                </div>
               </div>
-              <div className="dashboard-home-kpi">
-                <span className="dashboard-home-kpi-label">Categories</span>
-                <strong className="dashboard-home-kpi-value">{categories.length}</strong>
-                <span className="dashboard-home-kpi-hint">groupings</span>
+              <div className="dashboard-home-kpi dashboard-home-kpi--with-icon">
+                <span className="dashboard-home-kpi-icon dashboard-home-kpi-icon--purple" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01" />
+                  </svg>
+                </span>
+                <div className="dashboard-home-kpi-text">
+                  <span className="dashboard-home-kpi-label">Categories</span>
+                  <strong className="dashboard-home-kpi-value">{categories.length}</strong>
+                  <span className="dashboard-home-kpi-hint">groupings</span>
+                </div>
               </div>
-              <div className="dashboard-home-kpi">
-                <span className="dashboard-home-kpi-label">This month</span>
-                <strong className="dashboard-home-kpi-value">{thisCalendarMonthTx.length}</strong>
-                <span className="dashboard-home-kpi-hint">transactions</span>
+              <div className="dashboard-home-kpi dashboard-home-kpi--with-icon">
+                <span className="dashboard-home-kpi-icon dashboard-home-kpi-icon--sky" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 19V5M8 19V10M12 19v-6M16 19V8M20 19V12" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="dashboard-home-kpi-text">
+                  <span className="dashboard-home-kpi-label">This month</span>
+                  <strong className="dashboard-home-kpi-value">{thisCalendarMonthTx.length}</strong>
+                  <span className="dashboard-home-kpi-hint">transactions</span>
+                </div>
               </div>
-              <div className="dashboard-home-kpi dashboard-home-kpi--accent">
-                <span className="dashboard-home-kpi-label">Sales (month)</span>
-                <strong className="dashboard-home-kpi-value dashboard-home-kpi-value--currency">
-                  {formatCurrency(thisMonthSalesRevenue)}
-                </strong>
-                <span className="dashboard-home-kpi-hint">SALE type only</span>
+              <div className="dashboard-home-kpi dashboard-home-kpi--with-icon dashboard-home-kpi--accent">
+                <span className="dashboard-home-kpi-icon dashboard-home-kpi-icon--teal" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="dashboard-home-kpi-text">
+                  <span className="dashboard-home-kpi-label">Sales (month)</span>
+                  <strong className="dashboard-home-kpi-value dashboard-home-kpi-value--currency">
+                    {formatCurrency(thisMonthSalesRevenue)}
+                  </strong>
+                  <span className="dashboard-home-kpi-hint">SALE type only</span>
+                </div>
               </div>
             </div>
 
@@ -941,7 +1061,7 @@ const DashboardPage = () => {
                         <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#64748b" />
                         <YAxis tick={{ fontSize: 11 }} stroke="#64748b" tickFormatter={(v) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
                         <Tooltip formatter={(value) => formatCurrency(value)} labelStyle={{ color: "#334155" }} />
-                        <Bar dataKey="revenue" name="Revenue" fill="#008080" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="revenue" name="Revenue" fill="#22c55e" radius={[6, 6, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -962,27 +1082,31 @@ const DashboardPage = () => {
                 {products.length === 0 ? (
                   <p className="dashboard-home-empty">No products yet. Add your first SKU from the product page.</p>
                 ) : (
-                  <div className="dashboard-home-chart-wrap dashboard-home-chart-wrap--pie">
-                    <ResponsiveContainer width="100%" height={220}>
+                  <div className="dashboard-home-pie-with-center">
+                    <ResponsiveContainer width="100%" height={240}>
                       <PieChart>
                         <Pie
-                          data={stockOverviewData}
+                          data={stockOverviewPieData}
                           dataKey="value"
                           nameKey="name"
                           cx="50%"
-                          cy="50%"
-                          innerRadius={52}
-                          outerRadius={78}
+                          cy="46%"
+                          innerRadius={56}
+                          outerRadius={82}
                           paddingAngle={2}
                         >
-                          {stockOverviewData.map((entry, i) => (
-                            <Cell key={`stock-${entry.name}-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          {stockOverviewPieData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.fill} />
                           ))}
                         </Pie>
-                        <Tooltip />
-                        <Legend verticalAlign="bottom" height={28} />
+                        <Tooltip formatter={(value, name, props) => [`${value} (${props.payload.pct}%)`, props.payload.name]} />
+                        <Legend layout="horizontal" verticalAlign="bottom" content={stockPieLegendContent} />
                       </PieChart>
                     </ResponsiveContainer>
+                    <div className="dashboard-home-pie-center">
+                      <strong>{products.length}</strong>
+                      <span>Total products</span>
+                    </div>
                   </div>
                 )}
               </section>
