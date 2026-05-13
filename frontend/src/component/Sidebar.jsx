@@ -1,7 +1,9 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import ApiService from "../service/ApiService";
 import logo from "../logo.png";
+
+const DASHBOARD_HOME_EVENT = "ims-dashboard-reset-home";
 
 const logout = () => {
   ApiService.logout();
@@ -9,16 +11,29 @@ const logout = () => {
 
 const Sidebar = () => {
   const isAuth = ApiService.isAuthenticated();
+  const location = useLocation();
+
+  const handleDashboardBrandClick = (e) => {
+    if (location.pathname === "/dashboard") {
+      e.preventDefault();
+      window.dispatchEvent(new Event(DASHBOARD_HOME_EVENT));
+    }
+  };
 
   return (
     <div className="sidebar">
-      <div className="sidebar-brand">
-        <img className="sidebar-logo" src={logo} alt="StockSmart logo" />
+      <Link
+        to="/dashboard"
+        className="sidebar-brand sidebar-brand-link"
+        onClick={handleDashboardBrandClick}
+        aria-label="StockSmart — go to dashboard overview"
+      >
+        <img className="sidebar-logo" src={logo} alt="" />
         <div className="sidebar-brand-text">
           <div className="sidebar-brand-name">StockSmart</div>
           <div className="sidebar-brand-sub">Inventory System</div>
         </div>
-      </div>
+      </Link>
       {isAuth && (
         <nav className="sidebar-nav" aria-label="Main navigation">
           <ul className="nav-links">

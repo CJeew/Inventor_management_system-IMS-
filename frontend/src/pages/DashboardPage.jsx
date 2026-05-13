@@ -114,6 +114,12 @@ const DashboardPage = () => {
   const [suppliers, setSuppliers] = useState([]);
 
   useEffect(() => {
+    const onResetHome = () => setActiveDashboard("home");
+    window.addEventListener("ims-dashboard-reset-home", onResetHome);
+    return () => window.removeEventListener("ims-dashboard-reset-home", onResetHome);
+  }, []);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
         const [transactionResponse, productsResponse, categoriesResponse, suppliersResponse] =
@@ -398,6 +404,61 @@ const DashboardPage = () => {
     [filteredTransactions]
   );
 
+  const thisCalendarMonthTx = useMemo(() => {
+    const d = new Date();
+    const m = d.getMonth() + 1;
+    const y = d.getFullYear();
+    return transactions.filter((t) => {
+      const dt = new Date(t.createdAt);
+      return dt.getMonth() + 1 === m && dt.getFullYear() === y;
+    });
+  }, [transactions]);
+
+  const thisMonthSalesRevenue = useMemo(
+    () =>
+      thisCalendarMonthTx
+        .filter((t) => t.transactionType === "SALE")
+        .reduce((sum, t) => sum + Number(t.totalPrice || 0), 0),
+    [thisCalendarMonthTx]
+  );
+
+  const last7DaysSalesChartData = useMemo(() => {
+    const rows = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      rows.push({
+        key: d.toISOString().slice(0, 10),
+        label: d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" }),
+        revenue: 0,
+      });
+    }
+    const byKey = new Map(rows.map((r) => [r.key, r]));
+    transactions.forEach((t) => {
+      if (t.transactionType !== "SALE") return;
+      const day = new Date(t.createdAt);
+      day.setHours(0, 0, 0, 0);
+      const k = day.toISOString().slice(0, 10);
+      const row = byKey.get(k);
+      if (row) row.revenue += Number(t.totalPrice || 0);
+    });
+    return rows;
+  }, [transactions]);
+
+  const homeLatestActivity = useMemo(
+    () =>
+      [...transactions]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 8),
+    [transactions]
+  );
+
+  const todayPeriodLabel = useMemo(
+    () => new Date().toLocaleString("default", { month: "long", year: "numeric" }),
+    []
+  );
+
   const filteredInventoryProducts = useMemo(() => {
     const q = managerSearch.trim().toLowerCase();
     if (!q) return products;
@@ -660,7 +721,14 @@ const DashboardPage = () => {
           className={`dashboard-title-wrap${activeDashboard === "home" ? " dashboard-title-wrap--welcome" : ""}`}
         >
           <div className="dashboard-brand">
-            <img className="dashboard-logo" src={logo} alt="StockSmart logo" />
+            <button
+              type="button"
+              className="dashboard-logo-hit"
+              onClick={() => setActiveDashboard("home")}
+              aria-label="Back to dashboard overview"
+            >
+              <img className="dashboard-logo" src={logo} alt="" />
+            </button>
             <div className="dashboard-brand-text">
               <h1 className={`dashboard-title${activeDashboard === "home" ? " dashboard-title--welcome" : ""}`}>
                 {activeDashboard === "home" ? (
@@ -803,10 +871,237 @@ const DashboardPage = () => {
 
         {activeDashboard === "home" ? (
           <div className="dashboard-content dashboard-home-hub">
-            <p className="dashboard-home-lead">
-              You are on the overview. Tap a card above to load that workspace — charts, exports, and shortcuts
-              appear below when you pick a module.
-            </p>
+            <div className="dashboard-home-intro">
+              <p className="dashboard-home-lead">
+                You are on the overview. Tap a card above for module workspaces, or use the live snapshot and
+                shortcuts below to jump straight into daily tasks.
+              </p>
+              <div className="dashboard-home-period" aria-label="Current calendar month">
+                <span className="dashboard-home-period-badge">{todayPeriodLabel}</span>
+                <span className="dashboard-home-period-note">Month totals below use today&apos;s calendar month</span>
+              </div>
+            </div>
+
+            <div className="dashboard-home-kpi-row" aria-label="Key metrics">
+              <div className="dashboard-home-kpi">
+                <span className="dashboard-home-kpi-label">Products</span>
+                <strong className="dashboard-home-kpi-value">{products.length}</strong>
+                <span className="dashboard-home-kpi-hint">in catalog</span>
+              </div>
+              <div
+                className={`dashboard-home-kpi${lowStockProducts.length > 0 ? " dashboard-home-kpi--alert" : ""}`}
+              >
+                <span className="dashboard-home-kpi-label">Low stock</span>
+                <strong className="dashboard-home-kpi-value">{lowStockProducts.length}</strong>
+                <span className="dashboard-home-kpi-hint">≤ 5 units</span>
+              </div>
+              <div className="dashboard-home-kpi">
+                <span className="dashboard-home-kpi-label">Suppliers</span>
+                <strong className="dashboard-home-kpi-value">{suppliers.length}</strong>
+                <span className="dashboard-home-kpi-hint">active directory</span>
+              </div>
+              <div className="dashboard-home-kpi">
+                <span className="dashboard-home-kpi-label">Categories</span>
+                <strong className="dashboard-home-kpi-value">{categories.length}</strong>
+                <span className="dashboard-home-kpi-hint">groupings</span>
+              </div>
+              <div className="dashboard-home-kpi">
+                <span className="dashboard-home-kpi-label">This month</span>
+                <strong className="dashboard-home-kpi-value">{thisCalendarMonthTx.length}</strong>
+                <span className="dashboard-home-kpi-hint">transactions</span>
+              </div>
+              <div className="dashboard-home-kpi dashboard-home-kpi--accent">
+                <span className="dashboard-home-kpi-label">Sales (month)</span>
+                <strong className="dashboard-home-kpi-value dashboard-home-kpi-value--currency">
+                  {formatCurrency(thisMonthSalesRevenue)}
+                </strong>
+                <span className="dashboard-home-kpi-hint">SALE type only</span>
+              </div>
+            </div>
+
+            <div className="dashboard-home-bento">
+              <section className="dashboard-home-panel dashboard-home-panel--chart">
+                <div className="dashboard-home-panel-head">
+                  <h3 className="dashboard-home-panel-title">Last 7 days — sales revenue</h3>
+                  <button
+                    type="button"
+                    className="dashboard-home-panel-action"
+                    onClick={() => setActiveDashboard("transaction")}
+                  >
+                    Transactions workspace →
+                  </button>
+                </div>
+                {last7DaysSalesChartData.every((d) => d.revenue === 0) ? (
+                  <p className="dashboard-home-empty">No sale transactions in the last week. Stock-in or record a sale to see the trend.</p>
+                ) : (
+                  <div className="dashboard-home-chart-wrap">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={last7DaysSalesChartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#64748b" />
+                        <YAxis tick={{ fontSize: 11 }} stroke="#64748b" tickFormatter={(v) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
+                        <Tooltip formatter={(value) => formatCurrency(value)} labelStyle={{ color: "#334155" }} />
+                        <Bar dataKey="revenue" name="Revenue" fill="#008080" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </section>
+
+              <section className="dashboard-home-panel dashboard-home-panel--pie">
+                <div className="dashboard-home-panel-head">
+                  <h3 className="dashboard-home-panel-title">Stock health</h3>
+                  <button
+                    type="button"
+                    className="dashboard-home-panel-action"
+                    onClick={() => setActiveDashboard("product")}
+                  >
+                    Products workspace →
+                  </button>
+                </div>
+                {products.length === 0 ? (
+                  <p className="dashboard-home-empty">No products yet. Add your first SKU from the product page.</p>
+                ) : (
+                  <div className="dashboard-home-chart-wrap dashboard-home-chart-wrap--pie">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={stockOverviewData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={52}
+                          outerRadius={78}
+                          paddingAngle={2}
+                        >
+                          {stockOverviewData.map((entry, i) => (
+                            <Cell key={`stock-${entry.name}-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend verticalAlign="bottom" height={28} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </section>
+
+              <section className="dashboard-home-panel dashboard-home-panel--list">
+                <div className="dashboard-home-panel-head">
+                  <h3 className="dashboard-home-panel-title">Recent activity</h3>
+                  <button type="button" className="dashboard-home-panel-action" onClick={() => navigate("/transaction")}>
+                    Open list →
+                  </button>
+                </div>
+                {homeLatestActivity.length === 0 ? (
+                  <p className="dashboard-home-empty">No transactions recorded yet.</p>
+                ) : (
+                  <ul className="dashboard-home-activity">
+                    {homeLatestActivity.map((t) => (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          className="dashboard-home-activity-row"
+                          onClick={() => navigate(`/transaction/${t.id}`)}
+                        >
+                          <span
+                            className={`dashboard-home-activity-type dashboard-home-activity-type--${String(
+                              t.transactionType || "unknown"
+                            )
+                              .toLowerCase()
+                              .replace(/_/g, "-")}`}
+                          >
+                            {(t.transactionType || "").replace(/_/g, " ")}
+                          </span>
+                          <span className="dashboard-home-activity-meta">
+                            <span className="dashboard-home-activity-product">{t.product?.name || "Product"}</span>
+                            <span className="dashboard-home-activity-sub">
+                              {formatCurrency(t.totalPrice)} · {new Date(t.createdAt).toLocaleString()}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="dashboard-home-panel dashboard-home-panel--alerts">
+                <div className="dashboard-home-panel-head">
+                  <h3 className="dashboard-home-panel-title">Needs attention</h3>
+                  <button type="button" className="dashboard-home-panel-action" onClick={() => navigate("/product")}>
+                    Product list →
+                  </button>
+                </div>
+                {lowStockProducts.length === 0 ? (
+                  <div className="dashboard-home-all-clear">
+                    <span className="dashboard-home-all-clear-icon" aria-hidden>
+                      ✓
+                    </span>
+                    <p>All tracked SKUs above your low-stock threshold (5 units).</p>
+                  </div>
+                ) : (
+                  <ul className="dashboard-home-alert-list">
+                    {lowStockProducts.slice(0, 6).map((p) => (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          className="dashboard-home-alert-row"
+                          onClick={() => navigate("/product")}
+                          title="Open product catalog"
+                        >
+                          <span className="dashboard-home-alert-name">{p.name}</span>
+                          <span className="dashboard-home-alert-qty">{Number(p.stockQuantity ?? 0)} left</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+
+            <div className="dashboard-home-shortcuts">
+              <h3 className="dashboard-home-shortcuts-title">Quick shortcuts</h3>
+              <div className="dashboard-home-shortcuts-grid">
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/stock-in")}>
+                  <span className="dashboard-home-shortcut-label">Stock in</span>
+                  <span className="dashboard-home-shortcut-desc">Receive inventory</span>
+                </button>
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/stock-out")}>
+                  <span className="dashboard-home-shortcut-label">Stock out</span>
+                  <span className="dashboard-home-shortcut-desc">Ship or consume</span>
+                </button>
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/transaction")}>
+                  <span className="dashboard-home-shortcut-label">Transactions</span>
+                  <span className="dashboard-home-shortcut-desc">Browse all movements</span>
+                </button>
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/transaction-report")}>
+                  <span className="dashboard-home-shortcut-label">Reports</span>
+                  <span className="dashboard-home-shortcut-desc">Transaction report</span>
+                </button>
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/product")}>
+                  <span className="dashboard-home-shortcut-label">Catalog</span>
+                  <span className="dashboard-home-shortcut-desc">Product list</span>
+                </button>
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/warehouse")}>
+                  <span className="dashboard-home-shortcut-label">Warehouses</span>
+                  <span className="dashboard-home-shortcut-desc">Sites & storage</span>
+                </button>
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/stock-locations")}>
+                  <span className="dashboard-home-shortcut-label">Locations</span>
+                  <span className="dashboard-home-shortcut-desc">Stock placement</span>
+                </button>
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/category")}>
+                  <span className="dashboard-home-shortcut-label">Categories</span>
+                  <span className="dashboard-home-shortcut-desc">Group products</span>
+                </button>
+                <button type="button" className="dashboard-home-shortcut" onClick={() => navigate("/supplier")}>
+                  <span className="dashboard-home-shortcut-label">Suppliers</span>
+                  <span className="dashboard-home-shortcut-desc">Vendor directory</span>
+                </button>
+              </div>
+            </div>
           </div>
         ) : activeDashboard === "product" ? (
           <div className="dashboard-content">
