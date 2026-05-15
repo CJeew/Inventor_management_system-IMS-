@@ -40,13 +40,18 @@ const TransactionsPage = () => {
   useEffect(() => {
     const getTransactions = async () => {
       try {
-        const transactionData = await ApiService.getAllTransactions(valueToSearch, 0, 5000);
+        const transactionData = await ApiService.getAllTransactions(
+          valueToSearch,
+          0,
+          5000,
+        );
         if (transactionData.status === 200) {
           setFullList(transactionData.transactions || []);
         }
       } catch (error) {
         showMessage(
-          error.response?.data?.message || "Error loading transactions: " + error
+          error.response?.data?.message ||
+            "Error loading transactions: " + error,
         );
       }
     };
@@ -64,10 +69,13 @@ const TransactionsPage = () => {
     return fullList;
   }, [fullList, linkFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredByLink.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredByLink.length / itemsPerPage),
+  );
   const transactions = filteredByLink.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   useEffect(() => {
@@ -97,22 +105,20 @@ const TransactionsPage = () => {
     if (!isAdmin) return;
     if (
       !window.confirm(
-        "Void this transaction?\n\nStatus will be set to CANCELLED and stock will be reversed. This cannot be undone from the UI."
+        "Permanently delete this transaction? Inventory will be adjusted if needed. This cannot be undone.",
       )
     ) {
       return;
     }
     try {
-      await ApiService.updateTransactionStatus(transactionId, "CANCELLED");
-      showMessage("Transaction voided.");
+      await ApiService.deleteTransaction(transactionId);
+      showMessage("Transaction deleted.");
       setFullList((prev) =>
-        prev.map((t) =>
-          t.id === transactionId ? { ...t, status: "CANCELLED" } : t
-        )
+        prev.filter((t) => Number(t.id) !== Number(transactionId)),
       );
     } catch (error) {
       showMessage(
-        error.response?.data?.message || "Error voiding transaction: " + error
+        error.response?.data?.message || "Error voiding transaction: " + error,
       );
     }
   };
@@ -127,8 +133,8 @@ const TransactionsPage = () => {
     linkFilter?.kind === "product"
       ? `Showing movements for product #${linkFilter.id}`
       : linkFilter?.kind === "supplier"
-      ? `Showing movements for supplier #${linkFilter.id}`
-      : null;
+        ? `Showing movements for supplier #${linkFilter.id}`
+        : null;
 
   return (
     <Layout>
@@ -138,8 +144,8 @@ const TransactionsPage = () => {
           <div>
             <h1>Transactions</h1>
             <p className="transactions-modern-sub">
-              Each row links to the product and supplier involved. Search loads up to 5,000 recent rows; use the
-              report for date ranges.
+              Each row links to the product and supplier involved. Search loads
+              up to 5,000 recent rows; use the report for date ranges.
             </p>
           </div>
           <div className="transactions-modern-actions">
@@ -178,7 +184,11 @@ const TransactionsPage = () => {
               />
             </div>
             <div className="transactions-toolbar-buttons">
-              <button type="button" className="btn btn-primary btn-md" onClick={handleSearch}>
+              <button
+                type="button"
+                className="btn btn-primary btn-md"
+                onClick={handleSearch}
+              >
                 Search
               </button>
             </div>
@@ -241,19 +251,24 @@ const TransactionsPage = () => {
                         type="button"
                         className="btn btn-primary btn-sm"
                         style={{ marginRight: 8 }}
-                        onClick={() => navigateToTransactionDetailsPage(transaction.id)}
+                        onClick={() =>
+                          navigateToTransactionDetailsPage(transaction.id)
+                        }
                       >
                         Details
                       </button>
-                      {isAdmin && String(transaction.status) !== "CANCELLED" && (
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleVoidTransaction(transaction.id)}
-                        >
-                          Void
-                        </button>
-                      )}
+                      {isAdmin &&
+                        String(transaction.status) !== "CANCELLED" && (
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm"
+                            onClick={() =>
+                              handleVoidTransaction(transaction.id)
+                            }
+                          >
+                            Delete (Void)
+                          </button>
+                        )}
                     </td>
                   </tr>
                 ))}

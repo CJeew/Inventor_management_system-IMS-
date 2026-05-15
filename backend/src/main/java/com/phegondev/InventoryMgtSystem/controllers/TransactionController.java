@@ -8,8 +8,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
+@Slf4j
 @RequestMapping("/api/transactions")
 @RequiredArgsConstructor
 public class TransactionController {
@@ -62,6 +64,14 @@ public class TransactionController {
             @RequestBody TransactionStatus status) {
 
         return ResponseEntity.ok(transactionService.updateTransactionStatus(transactionId, status));
+    }
+
+    @DeleteMapping("/delete/{transactionId}")
+    public ResponseEntity<Response> deleteTransaction(@PathVariable Long transactionId) {
+        log.info("Received delete request for transactionId={}", transactionId);
+        Response res = transactionService.deleteTransaction(transactionId);
+        log.info("Delete result: status={} message={}", res.getStatus(), res.getMessage());
+        return ResponseEntity.ok(res);
     }
 
 
