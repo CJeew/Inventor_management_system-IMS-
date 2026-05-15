@@ -1,3 +1,4 @@
+/* global globalThis */
 import React, { useState, useEffect } from "react";
 import Layout from "../component/Layout";
 import ApiService from "../service/ApiService";
@@ -8,6 +9,8 @@ const TransactionDetailsPage = () => {
   const [transaction, setTransaction] = useState(null);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
+  const [requestMessage, setRequestMessage] = useState("");
+  const [updateRequests, setUpdateRequests] = useState([]);
   const navigate = useNavigate();
   const isAdmin = ApiService.isAdmin();
 
@@ -31,11 +34,25 @@ const TransactionDetailsPage = () => {
       }
     };
     getTransaction();
-  }, [transactionId]);
+  }, [transactionId, isAdmin]);
+
+  const loadUpdateRequests = async () => {
+    if (!isAdmin) return;
+    try {
+      const requestData = await ApiService.getTransactionUpdateRequests(transactionId);
+      if (requestData.status === 200) {
+        setUpdateRequests(requestData.transactionUpdateRequests || []);
+      }
+    } catch (error) {
+      showMessage(
+        error.response?.data?.message || "Error loading update requests: " + error
+      );
+    }
+  };
 
   const handleUpdateStatus = async () => {
-    if (String(status) === "CANCELLED" && !isAdmin) {
-      showMessage("Only administrators can void transactions.");
+    if (!isAdmin) {
+      showMessage("Only administrators can update transaction details.");
       return;
     }
     try {
@@ -49,9 +66,27 @@ const TransactionDetailsPage = () => {
     }
   };
 
+  const handleRequestUpdate = async () => {
+    if (isAdmin) return;
+    const trimmedMessage = requestMessage.trim();
+    if (!trimmedMessage) {
+      showMessage("Please describe the change you want to request.");
+      return;
+    }
+    try {
+      await ApiService.requestTransactionUpdate(transactionId, trimmedMessage);
+      showMessage("Update request sent to admin.");
+      setRequestMessage("");
+    } catch (error) {
+      showMessage(
+        error.response?.data?.message || "Error sending update request: " + error
+      );
+    }
+  };
+
   const handleVoidTransaction = async () => {
     if (!isAdmin) return;
-    const ok = window.confirm(
+    const ok = globalThis.confirm(
       "Void this transaction?\n\n" +
         "Status will be set to CANCELLED and inventory will be reversed:\n" +
         "• Purchase → stock decreases\n" +
@@ -81,7 +116,11 @@ const TransactionDetailsPage = () => {
   };
 
   const handleEditNavigation = () => {
-    navigate(`/update-transaction/${transactionId}`);
+    if (isAdmin) {
+      navigate(`/update-transaction/${transactionId}`);
+      return;
+    }
+    document.getElementById("transaction-update-request")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const priceText = (value) => {
@@ -107,9 +146,15 @@ const TransactionDetailsPage = () => {
                 )}
               </div>
               <div className="transaction-details-toolbar-right">
-                <button type="button" className="btn btn-secondary btn-md" onClick={handleEditNavigation}>
-                  Edit transaction
-                </button>
+                {isAdmin ? (
+                  <button type="button" className="btn btn-secondary btn-md" onClick={handleEditNavigation}>
+                    Edit transaction
+                  </button>
+                ) : (
+                  <button type="button" className="btn btn-secondary btn-md" onClick={handleEditNavigation}>
+                    Request update from admin
+                  </button>
+                )}
                 {isAdmin && String(transaction.status) !== "CANCELLED" && (
                   <button type="button" className="btn btn-danger btn-md" onClick={handleVoidTransaction}>
                     Delete transaction
@@ -334,8 +379,8 @@ const TransactionDetailsPage = () => {
               ) : (
                 <>
                   <p className="muted-text transaction-status-hint">
-                    Managers can set workflow states. <strong>Void (cancel)</strong> is an admin action and
-                    reverses stock — use &quot;Delete transaction&quot; above or the button below.
+                    Only administrators can change transaction details directly. Managers should submit a
+                    request for review.
                   </p>
                   <div className="transaction-status-row">
                     <label htmlFor="tx-status-select">Status</label>
@@ -363,6 +408,53 @@ const TransactionDetailsPage = () => {
                 </>
               )}
             </div>
+
+            {!isAdmin && (
+              <div className="section-card" id="transaction-update-request">
+                <h2>Request transaction update</h2>
+                <p className="muted-text">
+                  Managers cannot change transaction records directly. Send a request to Admin with the
+                  changes you need.
+                </p>
+                <textarea
+                  value={requestMessage}
+                  onChange={(e) => setRequestMessage(e.target.value)}
+                  placeholder="Describe the update you want Admin to make..."
+                  rows={5}
+                  style={{ width: "100%", marginBottom: 12 }}
+                />
+                <button type="button" className="btn btn-primary btn-md" onClick={handleRequestUpdate}>
+                  Send request to admin
+                </button>
+              </div>
+            )}
+
+            {isAdmin && updateRequests.length > 0 && (
+              <div className="section-card">
+                <h2>Update requests</h2>
+                {updateRequests.map((request) => (
+                  <div key={request.id} className="transaction-request-item" style={{ marginBottom: 12 }}>
+                    <p>
+                      <strong>{request.requesterName}</strong> ({request.requesterRole})
+                    </p>
+                    <p className="muted-text">{request.requestMessage}</p>
+                    <p className="muted-text">
+                      Requested: {request.createdAt ? new Date(request.createdAt).toLocaleString() : "—"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {isAdmin && updateRequests.length === 0 && (
+              <div className="section-card">
+                <h2>Update requests</h2>
+                <p className="muted-text">No update requests loaded yet.</p>
+                <button type="button" className="btn btn-secondary btn-md" onClick={loadUpdateRequests}>
+                  Load update requests
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

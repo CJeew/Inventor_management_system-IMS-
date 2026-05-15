@@ -44,7 +44,7 @@ function App() {
         <Route path="/transaction" element={<ProtectedRoute element={<TransactionsPage/>}/>}/>
         <Route path="/transaction/:transactionId" element={<ProtectedRoute element={<TransactionDetailsPage/>}/>}/>
         <Route path="/transaction-report" element={<ProtectedRoute element={<TransactionReportPage/>}/>}/>
-        <Route path="/update-transaction/:transactionId" element={<ProtectedRoute element={<UpdateTransactionPage/>}/>}/>
+        <Route path="/update-transaction/:transactionId" element={<AdminRoute element={<UpdateTransactionPage/>}/>}/>
 
         <Route path="/profile" element={<ProtectedRoute element={<ProfilePage/>}/>}/>
         <Route path="/dashboard" element={<ProtectedRoute element={<DashboardPage/>}/>}/>

@@ -2,8 +2,10 @@ package com.phegondev.InventoryMgtSystem.services.impl;
 
 
 import com.phegondev.InventoryMgtSystem.dtos.Response;
+import com.phegondev.InventoryMgtSystem.dtos.TransactionAdminUpdateRequest;
 import com.phegondev.InventoryMgtSystem.dtos.TransactionDTO;
 import com.phegondev.InventoryMgtSystem.dtos.TransactionRequest;
+import com.phegondev.InventoryMgtSystem.dtos.TransactionUpdateRequestDTO;
 import com.phegondev.InventoryMgtSystem.enums.TransactionStatus;
 import com.phegondev.InventoryMgtSystem.enums.TransactionType;
 import com.phegondev.InventoryMgtSystem.enums.UserRole;
@@ -12,10 +14,12 @@ import com.phegondev.InventoryMgtSystem.exceptions.NotFoundException;
 import com.phegondev.InventoryMgtSystem.models.Product;
 import com.phegondev.InventoryMgtSystem.models.Supplier;
 import com.phegondev.InventoryMgtSystem.models.Transaction;
+import com.phegondev.InventoryMgtSystem.models.TransactionUpdateRequest;
 import com.phegondev.InventoryMgtSystem.models.User;
 import com.phegondev.InventoryMgtSystem.repositories.ProductRepository;
 import com.phegondev.InventoryMgtSystem.repositories.SupplierRepository;
 import com.phegondev.InventoryMgtSystem.repositories.TransactionRepository;
+import com.phegondev.InventoryMgtSystem.repositories.TransactionUpdateRequestRepository;
 import com.phegondev.InventoryMgtSystem.services.TransactionService;
 import com.phegondev.InventoryMgtSystem.services.UserService;
 import com.phegondev.InventoryMgtSystem.specification.TransactionFilter;
@@ -44,6 +48,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final ProductRepository productRepository;
     private final SupplierRepository supplierRepository;
     private final UserService userService;
+        private final TransactionUpdateRequestRepository transactionUpdateRequestRepository;
     private final ModelMapper modelMapper;
 
     @Override
@@ -247,6 +252,11 @@ public class TransactionServiceImpl implements TransactionService {
         Transaction existingTransaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
 
+                User actor = userService.getCurrentLoggedInUser();
+                if (actor.getRole() != UserRole.ADMIN) {
+                        throw new NameValueRequiredException("Only administrators can update transaction details.");
+                }
+
         if (existingTransaction.getStatus() == TransactionStatus.CANCELLED
                 && status != TransactionStatus.CANCELLED) {
             throw new NameValueRequiredException("Cancelled transactions cannot be reactivated.");
@@ -254,11 +264,6 @@ public class TransactionServiceImpl implements TransactionService {
 
         if (status == TransactionStatus.CANCELLED
                 && existingTransaction.getStatus() != TransactionStatus.CANCELLED) {
-            User actor = userService.getCurrentLoggedInUser();
-            if (actor.getRole() != UserRole.ADMIN) {
-                throw new NameValueRequiredException(
-                        "Only administrators can void (cancel) transactions and reverse stock.");
-            }
             applyStockReversalForCancellation(existingTransaction);
         }
 
@@ -270,6 +275,127 @@ public class TransactionServiceImpl implements TransactionService {
         return Response.builder()
                 .status(200)
                 .message("Transaction Status Successfully Updated")
+                .build();
+    }
+
+        @Override
+        @Transactional
+        public Response updateTransactionDetails(Long transactionId, TransactionAdminUpdateRequest request) {
+                Transaction existingTransaction = transactionRepository.findById(transactionId)
+                                .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
+
+                User actor = userService.getCurrentLoggedInUser();
+                if (actor.getRole() != UserRole.ADMIN) {
+                        throw new NameValueRequiredException("Only administrators can edit transaction records.");
+                }
+
+                TransactionStatus nextStatus = request.getStatus() != null ? request.getStatus() : existingTransaction.getStatus();
+                if (existingTransaction.getStatus() == TransactionStatus.CANCELLED
+                                && nextStatus != TransactionStatus.CANCELLED) {
+                        throw new NameValueRequiredException("Cancelled transactions cannot be reactivated.");
+                }
+
+                boolean productChanged = existingTransaction.getProduct() == null
+                        || request.getProductId() == null
+                        || !existingTransaction.getProduct().getId().equals(request.getProductId());
+                boolean quantityChanged = existingTransaction.getTotalProducts() == null
+                        || request.getQuantity() == null
+                        || !existingTransaction.getTotalProducts().equals(request.getQuantity());
+
+                if (existingTransaction.getStatus() == TransactionStatus.CANCELLED && (productChanged || quantityChanged)) {
+                    throw new NameValueRequiredException("Cancelled transactions cannot change product or quantity.");
+                }
+
+                Product originalProduct = existingTransaction.getProduct();
+                Integer originalQuantity = existingTransaction.getTotalProducts();
+
+                if (existingTransaction.getStatus() != TransactionStatus.CANCELLED) {
+                        reverseTransactionStock(existingTransaction, originalProduct, originalQuantity);
+                }
+
+                Product updatedProduct = productRepository.findById(request.getProductId())
+                                .orElseThrow(() -> new NotFoundException("Product Not Found"));
+                Integer updatedQuantity = request.getQuantity();
+
+                if (nextStatus != TransactionStatus.CANCELLED) {
+                        applyTransactionStock(updatedProduct, existingTransaction.getTransactionType(), updatedQuantity);
+                }
+
+                BigDecimal updatedTotalPrice = calculateTotalPrice(existingTransaction.getTransactionType(), updatedProduct, updatedQuantity);
+
+                existingTransaction.setProduct(updatedProduct);
+                existingTransaction.setTotalProducts(updatedQuantity);
+                existingTransaction.setTotalPrice(updatedTotalPrice);
+                existingTransaction.setStatus(nextStatus);
+                if (request.getDescription() != null) {
+                        existingTransaction.setDescription(request.getDescription().trim());
+                }
+                if (request.getNote() != null) {
+                        existingTransaction.setNote(request.getNote().trim());
+                }
+                existingTransaction.setUpdateAt(LocalDateTime.now());
+
+                transactionRepository.save(existingTransaction);
+
+                return Response.builder()
+                                .status(200)
+                                .message("Transaction details successfully updated")
+                                .build();
+        }
+
+    @Override
+    @Transactional
+    public Response requestTransactionUpdate(Long transactionId, String requestMessage) {
+        Transaction existingTransaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
+
+        User requester = userService.getCurrentLoggedInUser();
+        if (requester.getRole() == UserRole.ADMIN) {
+            throw new NameValueRequiredException("Administrators can update transaction details directly.");
+        }
+
+        String trimmedMessage = requestMessage == null ? "" : requestMessage.trim();
+        if (trimmedMessage.isEmpty()) {
+            throw new NameValueRequiredException("Request message is required.");
+        }
+
+        TransactionUpdateRequest request = TransactionUpdateRequest.builder()
+                .transactionId(existingTransaction.getId())
+                .requesterUserId(requester.getId())
+                .requesterName(requester.getName())
+                .requesterEmail(requester.getEmail())
+                .requesterRole(requester.getRole())
+                .requestMessage(trimmedMessage)
+                .resolved(false)
+                .build();
+
+        TransactionUpdateRequest saved = transactionUpdateRequestRepository.save(request);
+
+        return Response.builder()
+                .status(200)
+                .message("Update request sent to admin.")
+                .transactionUpdateRequest(modelMapper.map(saved, TransactionUpdateRequestDTO.class))
+                .build();
+    }
+
+    @Override
+    public Response getTransactionUpdateRequests(Long transactionId) {
+        transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
+
+        User actor = userService.getCurrentLoggedInUser();
+        if (actor.getRole() != UserRole.ADMIN) {
+            throw new NameValueRequiredException("Only administrators can view transaction update requests.");
+        }
+
+        List<TransactionUpdateRequestDTO> requests = modelMapper.map(
+                transactionUpdateRequestRepository.findByTransactionIdOrderByCreatedAtDesc(transactionId),
+                new TypeToken<List<TransactionUpdateRequestDTO>>() {}.getType());
+
+        return Response.builder()
+                .status(200)
+                .message("success")
+                .transactionUpdateRequests(requests)
                 .build();
     }
 
@@ -325,6 +451,59 @@ public class TransactionServiceImpl implements TransactionService {
         }
         productRepository.save(product);
     }
+
+        private void reverseTransactionStock(Transaction tx, Product product, Integer quantity) {
+                if (product == null) {
+                        throw new NameValueRequiredException("Transaction has no linked product; cannot reverse stock.");
+                }
+                Product currentProduct = productRepository.findById(product.getId())
+                                .orElseThrow(() -> new NotFoundException("Product Not Found"));
+                int qty = quantity != null ? quantity : 0;
+                int current = currentProduct.getStockQuantity() != null ? currentProduct.getStockQuantity() : 0;
+
+                switch (tx.getTransactionType()) {
+                        case PURCHASE -> {
+                                int next = current - qty;
+                                if (next < 0) {
+                                        throw new NameValueRequiredException(
+                                                        "Cannot edit purchase: resulting stock would be negative. Adjust stock first.");
+                                }
+                                currentProduct.setStockQuantity(next);
+                        }
+                        case SALE, RETURN_TO_SUPPLIER -> currentProduct.setStockQuantity(current + qty);
+                        default -> throw new NameValueRequiredException(
+                                        "Unsupported transaction type for edit: " + tx.getTransactionType());
+                }
+                productRepository.save(currentProduct);
+        }
+
+        private void applyTransactionStock(Product product, TransactionType transactionType, Integer quantity) {
+                int qty = quantity != null ? quantity : 0;
+                int current = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+
+                switch (transactionType) {
+                        case PURCHASE -> product.setStockQuantity(current + qty);
+                        case SALE, RETURN_TO_SUPPLIER -> {
+                                int next = current - qty;
+                                if (next < 0) {
+                                        throw new NameValueRequiredException(
+                                                        "Cannot apply edit: resulting stock would be negative for the selected product.");
+                                }
+                                product.setStockQuantity(next);
+                        }
+                        default -> throw new NameValueRequiredException(
+                                        "Unsupported transaction type for edit: " + transactionType);
+                }
+                productRepository.save(product);
+        }
+
+        private BigDecimal calculateTotalPrice(TransactionType transactionType, Product product, Integer quantity) {
+                if (transactionType == TransactionType.RETURN_TO_SUPPLIER) {
+                        return BigDecimal.ZERO;
+                }
+                int qty = quantity != null ? quantity : 0;
+                return product.getPrice().multiply(BigDecimal.valueOf(qty));
+        }
 
 
 }

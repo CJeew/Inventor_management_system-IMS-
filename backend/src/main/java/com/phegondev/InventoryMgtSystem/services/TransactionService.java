@@ -1,6 +1,7 @@
 package com.phegondev.InventoryMgtSystem.services;
 
 import com.phegondev.InventoryMgtSystem.dtos.Response;
+import com.phegondev.InventoryMgtSystem.dtos.TransactionAdminUpdateRequest;
 import com.phegondev.InventoryMgtSystem.dtos.TransactionRequest;
 import com.phegondev.InventoryMgtSystem.enums.TransactionStatus;
 
@@ -18,6 +19,12 @@ public interface TransactionService {
     Response getAllTransactionByMonthAndYear(int month, int year);
 
     Response updateTransactionStatus(Long transactionId, TransactionStatus status);
+
+    Response updateTransactionDetails(Long transactionId, TransactionAdminUpdateRequest request);
+
+    Response requestTransactionUpdate(Long transactionId, String requestMessage);
+
+    Response getTransactionUpdateRequests(Long transactionId);
 
     Response deleteTransaction(Long transactionId);
 }

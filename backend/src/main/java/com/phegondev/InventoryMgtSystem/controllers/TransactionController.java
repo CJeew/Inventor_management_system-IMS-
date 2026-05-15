@@ -1,14 +1,16 @@
 package com.phegondev.InventoryMgtSystem.controllers;
 
 import com.phegondev.InventoryMgtSystem.dtos.Response;
+import com.phegondev.InventoryMgtSystem.dtos.TransactionAdminUpdateRequest;
 import com.phegondev.InventoryMgtSystem.dtos.TransactionRequest;
+import com.phegondev.InventoryMgtSystem.dtos.TransactionUpdateRequestBody;
 import com.phegondev.InventoryMgtSystem.enums.TransactionStatus;
 import com.phegondev.InventoryMgtSystem.services.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @Slf4j
@@ -64,6 +66,29 @@ public class TransactionController {
             @RequestBody TransactionStatus status) {
 
         return ResponseEntity.ok(transactionService.updateTransactionStatus(transactionId, status));
+    }
+
+    @PutMapping("/{transactionId}/edit")
+    public ResponseEntity<Response> updateTransactionDetails(
+            @PathVariable Long transactionId,
+            @RequestBody @Valid TransactionAdminUpdateRequest request) {
+
+        return ResponseEntity.ok(transactionService.updateTransactionDetails(transactionId, request));
+    }
+
+    @PostMapping("/{transactionId}/update-request")
+    public ResponseEntity<Response> requestTransactionUpdate(
+            @PathVariable Long transactionId,
+            @RequestBody @Valid TransactionUpdateRequestBody payload) {
+
+        return ResponseEntity.ok(
+                transactionService.requestTransactionUpdate(transactionId, payload.getRequestMessage())
+        );
+    }
+
+    @GetMapping("/{transactionId}/update-request")
+    public ResponseEntity<Response> getTransactionUpdateRequests(@PathVariable Long transactionId) {
+        return ResponseEntity.ok(transactionService.getTransactionUpdateRequests(transactionId));
     }
 
     @DeleteMapping("/delete/{transactionId}")

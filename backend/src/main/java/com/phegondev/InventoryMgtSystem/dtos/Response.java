@@ -3,6 +3,7 @@ package com.phegondev.InventoryMgtSystem.dtos;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.phegondev.InventoryMgtSystem.enums.UserRole;
+import com.phegondev.InventoryMgtSystem.dtos.TransactionUpdateRequestDTO;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +39,9 @@ public class Response {
     private TransactionDTO transaction;
     private List<TransactionDTO> transactions;
 
+    private TransactionUpdateRequestDTO transactionUpdateRequest;
+    private List<TransactionUpdateRequestDTO> transactionUpdateRequests;
+
     private final LocalDateTime timestamp = LocalDateTime.now();
 
     public Response() {}
@@ -66,6 +70,8 @@ public class Response {
         public Builder products(List<ProductDTO> products) { target.setProducts(products); return this; }
         public Builder transaction(TransactionDTO transaction) { target.setTransaction(transaction); return this; }
         public Builder transactions(List<TransactionDTO> transactions) { target.setTransactions(transactions); return this; }
+        public Builder transactionUpdateRequest(TransactionUpdateRequestDTO transactionUpdateRequest) { target.setTransactionUpdateRequest(transactionUpdateRequest); return this; }
+        public Builder transactionUpdateRequests(List<TransactionUpdateRequestDTO> transactionUpdateRequests) { target.setTransactionUpdateRequests(transactionUpdateRequests); return this; }
 
         public Response build() { return target; }
     }
@@ -104,6 +110,10 @@ public class Response {
     public void setTransaction(TransactionDTO transaction) { this.transaction = transaction; }
     public List<TransactionDTO> getTransactions() { return transactions; }
     public void setTransactions(List<TransactionDTO> transactions) { this.transactions = transactions; }
+    public TransactionUpdateRequestDTO getTransactionUpdateRequest() { return transactionUpdateRequest; }
+    public void setTransactionUpdateRequest(TransactionUpdateRequestDTO transactionUpdateRequest) { this.transactionUpdateRequest = transactionUpdateRequest; }
+    public List<TransactionUpdateRequestDTO> getTransactionUpdateRequests() { return transactionUpdateRequests; }
+    public void setTransactionUpdateRequests(List<TransactionUpdateRequestDTO> transactionUpdateRequests) { this.transactionUpdateRequests = transactionUpdateRequests; }
     public LocalDateTime getTimestamp() { return timestamp; }
 
 }

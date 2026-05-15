@@ -378,6 +378,32 @@ export default class ApiService {
     return response.data;
   }
 
+  static async updateTransactionDetails(transactionId, payload) {
+    const response = await axios.put(
+      `${this.BASE_URL}/transactions/${transactionId}/edit`,
+      payload,
+      { headers: this.getHeader() },
+    );
+    return response.data;
+  }
+
+  static async requestTransactionUpdate(transactionId, requestMessage) {
+    const response = await axios.post(
+      `${this.BASE_URL}/transactions/${transactionId}/update-request`,
+      { requestMessage },
+      { headers: this.getHeader() },
+    );
+    return response.data;
+  }
+
+  static async getTransactionUpdateRequests(transactionId) {
+    const response = await axios.get(
+      `${this.BASE_URL}/transactions/${transactionId}/update-request`,
+      { headers: this.getHeader() },
+    );
+    return response.data;
+  }
+
   static async deleteTransaction(transactionId) {
     const response = await axios.delete(
       `${this.BASE_URL}/transactions/delete/${transactionId}`,

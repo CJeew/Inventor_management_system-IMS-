@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-globals */
 import React, { useState, useEffect, useMemo } from "react";
 import Layout from "../component/Layout";
 import ApiService from "../service/ApiService";
@@ -21,6 +22,13 @@ const TransactionsPage = () => {
   const showMessage = (msg) => {
     setMessage(msg);
     setTimeout(() => setMessage(""), 4000);
+  };
+
+  const confirmAction = (prompt) => {
+    if (typeof confirm !== "function") {
+      return false;
+    }
+    return confirm(prompt);
   };
 
   useEffect(() => {
@@ -103,11 +111,7 @@ const TransactionsPage = () => {
 
   const handleVoidTransaction = async (transactionId) => {
     if (!isAdmin) return;
-    if (
-      !window.confirm(
-        "Permanently delete this transaction? Inventory will be adjusted if needed. This cannot be undone.",
-      )
-    ) {
+    if (!confirmAction("Permanently delete this transaction? Inventory will be adjusted if needed. This cannot be undone.")) {
       return;
     }
     try {
@@ -129,12 +133,12 @@ const TransactionsPage = () => {
     return `$${n.toFixed(2)}`;
   };
 
-  const linkFilterLabel =
-    linkFilter?.kind === "product"
-      ? `Showing movements for product #${linkFilter.id}`
-      : linkFilter?.kind === "supplier"
-        ? `Showing movements for supplier #${linkFilter.id}`
-        : null;
+  let linkFilterLabel = null;
+  if (linkFilter?.kind === "product") {
+    linkFilterLabel = `Showing movements for product #${linkFilter.id}`;
+  } else if (linkFilter?.kind === "supplier") {
+    linkFilterLabel = `Showing movements for supplier #${linkFilter.id}`;
+  }
 
   return (
     <Layout>

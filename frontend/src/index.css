@@ -3731,6 +3731,209 @@ button:hover {
   line-height: 1.5;
 }
 
+.transaction-edit-page {
+  max-width: 1040px;
+}
+
+.transaction-edit-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 22px 22px 18px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);
+  border: 1px solid #d1fae5;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.transaction-edit-hero h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+}
+
+.transaction-edit-kicker {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #0f766e;
+}
+
+.transaction-edit-hero-copy {
+  flex: 1 1 420px;
+}
+
+.transaction-edit-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.transaction-edit-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.transaction-edit-badge--type {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.transaction-edit-badge--status {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.transaction-edit-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.transaction-edit-summary-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.transaction-edit-summary-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.transaction-edit-summary-card strong {
+  font-size: 1.35rem;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.transaction-edit-summary-card span:last-child {
+  font-size: 0.86rem;
+  color: #64748b;
+}
+
+.transaction-edit-form {
+  padding: 22px;
+}
+
+.transaction-edit-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.transaction-edit-panel {
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.transaction-edit-panel h2 {
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+  color: #0f172a;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 10px;
+}
+
+.transaction-edit-panel-note {
+  margin-top: 0;
+  margin-bottom: 14px;
+  font-size: 0.92rem;
+}
+
+.transaction-edit-help {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ecfeff;
+  border: 1px solid #a5f3fc;
+  color: #155e75;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.stock-io-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.stock-io-form-group label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stock-io-form-group input,
+.stock-io-form-group select,
+.stock-io-form-group textarea {
+  width: 100%;
+  border: 1px solid #dbe3ed;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 12px 14px;
+  font: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stock-io-form-group textarea {
+  resize: vertical;
+  min-height: 112px;
+}
+
+.stock-io-form-group input:focus,
+.stock-io-form-group select:focus,
+.stock-io-form-group textarea:focus {
+  outline: none;
+  border-color: rgba(0, 128, 128, 0.45);
+  box-shadow: 0 0 0 4px rgba(0, 128, 128, 0.12);
+}
+
+.transaction-edit-actions {
+  margin-top: 18px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .transaction-edit-summary-grid,
+  .transaction-edit-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-edit-badges {
+    justify-content: flex-start;
+  }
+}
+
 .stock-io-page .section-card .label {
   font-weight: 600;
   color: #111827;
