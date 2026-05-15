@@ -273,6 +273,30 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
+        @Override
+        @Transactional
+        public Response deleteTransaction(Long transactionId) {
+                Transaction existingTransaction = transactionRepository.findById(transactionId)
+                                .orElseThrow(() -> new NotFoundException("Transaction Not Found"));
+
+                User actor = userService.getCurrentLoggedInUser();
+                if (actor.getRole() != UserRole.ADMIN) {
+                        throw new NameValueRequiredException("Only administrators can delete transactions.");
+                }
+
+                // If transaction not already cancelled, reverse stock first to keep inventory consistent
+                if (existingTransaction.getStatus() != TransactionStatus.CANCELLED) {
+                        applyStockReversalForCancellation(existingTransaction);
+                }
+
+                transactionRepository.delete(existingTransaction);
+
+                return Response.builder()
+                                .status(200)
+                                .message("Transaction Deleted successfully")
+                                .build();
+        }
+
     /**
      * Undo inventory movement for this transaction when it is voided (status CANCELLED).
      * PURCHASE had increased stock; SALE and RETURN_TO_SUPPLIER had decreased stock.
