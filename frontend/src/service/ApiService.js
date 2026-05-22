@@ -118,7 +118,7 @@ export default class ApiService {
 
   static async deleteUser(userId) {
     const response = await axios.delete(
-      `${this.BASE_URL}/users/update/${userId}`,
+      `${this.BASE_URL}/users/delete/${userId}`,
       {
         headers: this.getHeader(),
       },
@@ -407,6 +407,50 @@ export default class ApiService {
   static async deleteTransaction(transactionId) {
     const response = await axios.delete(
       `${this.BASE_URL}/transactions/delete/${transactionId}`,
+      {
+        headers: this.getHeader(),
+      },
+    );
+    return response.data;
+  }
+
+    /** WAREHOUSE ENDPOINTS */
+
+  static async addWarehouse(warehouseData) {
+    const response = await axios.post(
+      `${this.BASE_URL}/warehouses/add`,
+      warehouseData,
+      {
+        headers: this.getHeader(),
+      },
+    );
+    return response.data;
+  }
+
+  static async getAllWarehouses() {
+    const response = await axios.get(
+      `${this.BASE_URL}/warehouses/all`,
+      {
+        headers: this.getHeader(),
+      },
+    );
+    return response.data;
+  }
+
+  static async updateWarehouse(id, warehouseData) {
+    const response = await axios.put(
+      `${this.BASE_URL}/warehouses/update/${id}`,
+      warehouseData,
+      {
+        headers: this.getHeader(),
+      },
+    );
+    return response.data;
+  }
+
+  static async deleteWarehouse(id) {
+    const response = await axios.delete(
+      `${this.BASE_URL}/warehouses/delete/${id}`,
       {
         headers: this.getHeader(),
       },
